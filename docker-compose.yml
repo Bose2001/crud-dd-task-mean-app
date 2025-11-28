@@ -2,23 +2,11 @@ version: '3.8'
 
 services:
 
-  mongo:
-    image: mongo:6
-    container_name: mean-mongo
-    restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: examplepassword
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-
   backend:
     build: ./backend
     container_name: mean-backend
     ports:
-      - "8080:8080"
+      - "5000:8080"    # Host 5000 maps to container 8080 to avoid conflict with Jenkins
     environment:
       - MONGO_URL=mongodb://mean-mongo:27017/meanDB
     depends_on:
@@ -31,6 +19,18 @@ services:
       - "4200:80"
     depends_on:
       - backend
+
+  mongo:
+    image: mongo:6
+    container_name: mean-mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: examplepassword
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
 
 volumes:
   mongo-data:
