@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+
+  mongo:
+    image: mongo:6
+    container_name: mean-mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: examplepassword
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build: ./backend
+    container_name: mean-backend
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URL=mongodb://mean-mongo:27017/meanDB
+    ports:
+      - "8080:8080"   # expose backend to host for Nginx
+
+  frontend:
+    build: ./frontend
+    container_name: mean-frontend
+    depends_on:
+      - backend
+    ports:
+      - "4200:80"     # expose frontend to host for Nginx
+
+volumes:
+  mongo-data:
+
