@@ -8,3 +8,4 @@ import { Component } from '@angular/core';
 export class AppComponent {
   title = 'Angular 15 CRUD example';
 }
+// Test CI/CD
