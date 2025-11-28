@@ -16,7 +16,7 @@ services:
     build: ./frontend
     container_name: mean-frontend
     ports:
-      - "4200:80"
+      - "80:80"
     depends_on:
       - backend
 
