@@ -5,6 +5,7 @@ pipeline {
         DOCKERHUB_USER = 'bose2001'
         FRONTEND_IMAGE = "${DOCKERHUB_USER}/mean-frontend"
         BACKEND_IMAGE = "${DOCKERHUB_USER}/mean-backend"
+        SERVER_IP = "3.230.166.189"
     }
 
     stages {
@@ -16,46 +17,66 @@ pipeline {
             }
         }
 
-        stage('Build Frontend Docker Image') {
+        stage('Build Frontend') {
             steps {
-                script {
-                    sh 'docker build -t mean-frontend ./frontend'
+                dir('frontend') {
+                    sh 'npm install'
+                    sh 'npm run build --prod'
                 }
             }
         }
 
-        stage('Build Backend Docker Image') {
+        stage('Build Backend') {
             steps {
-                script {
-                    sh 'docker build -t mean-backend ./backend'
+                dir('backend') {
+                    sh 'npm install'
                 }
             }
         }
 
-        stage('Tag Images for DockerHub') {
+        stage('Build Docker Images') {
             steps {
-                script {
-                    sh "docker tag mean-frontend ${FRONTEND_IMAGE}:latest"
-                    sh "docker tag mean-backend ${BACKEND_IMAGE}:latest"
-                }
+                sh "docker build -t mean-backend ./backend"
+                sh "docker build -t mean-frontend ./frontend"
+            }
+        }
+
+        stage('Tag Docker Images') {
+            steps {
+                sh "docker tag mean-backend ${BACKEND_IMAGE}:latest"
+                sh "docker tag mean-frontend ${FRONTEND_IMAGE}:latest"
             }
         }
 
         stage('Login to DockerHub') {
             steps {
-                withCredentials([string(credentialsId: 'dockerhub-token', variable: 'DOCKERHUB_PASS')]) {
-                    sh "echo $DOCKERHUB_PASS | docker login -u ${DOCKERHUB_USER} --password-stdin"
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    sh "echo $PASS | docker login -u $USER --password-stdin"
                 }
             }
         }
 
         stage('Push Images to DockerHub') {
             steps {
-                script {
-                    sh "docker push ${FRONTEND_IMAGE}:latest"
-                    sh "docker push ${BACKEND_IMAGE}:latest"
+                sh "docker push ${BACKEND_IMAGE}:latest"
+                sh "docker push ${FRONTEND_IMAGE}:latest"
+            }
+        }
+
+        stage('Deploy on Ubuntu Server') {
+            steps {
+                sshagent(credentials: ['ubuntu-ssh']) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} '
+                        cd ~/crud-dd-task-mean-app &&
+                        docker compose down &&
+                        docker compose pull &&
+                        docker compose up -d
+                    '
+                    """
                 }
             }
         }
     }
 }
+
