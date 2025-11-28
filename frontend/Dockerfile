@@ -10,6 +10,7 @@ RUN npm run build --prod
 
 FROM nginx:alpine
 
+
 COPY --from=build /usr/src/app/dist/angular-15-crud /usr/share/nginx/html
 
 EXPOSE 80
