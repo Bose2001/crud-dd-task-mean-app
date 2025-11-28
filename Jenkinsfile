@@ -35,7 +35,7 @@ pipeline {
         stage('Build Backend') {
             steps {
                 dir('backend') {
-                    sh 'npm ci --only=production'
+                    sh 'npm install --omit=dev'
                 }
             }
         }
