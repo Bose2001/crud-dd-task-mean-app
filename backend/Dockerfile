@@ -1,13 +1,21 @@
+# Use official Node.js image
 FROM node:18-alpine
 
+# Set working directory
 WORKDIR /usr/src/app
 
-COPY package*.json ./
+# Copy package files explicitly
+COPY package.json package-lock.json ./
 
-RUN npm ci --only=production && npm cache clean --force
+# Install dependencies
+RUN npm ci --only=production
 
+# Copy source code
 COPY . .
 
-EXPOSE 8080
+# Expose backend port
+EXPOSE 3000
 
+# Start the backend
 CMD ["node", "server.js"]
+

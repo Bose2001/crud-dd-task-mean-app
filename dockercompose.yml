@@ -1,0 +1,28 @@
+version: "3.9"
+services:
+  mongo:
+    image: mongo:6
+    container_name: mean-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    image: bose2001/mean-backend:latest
+    container_name: mean-backend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo
+
+  frontend:
+    image: bose2001/mean-frontend:latest
+    container_name: mean-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo-data:
