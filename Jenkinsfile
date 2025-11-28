@@ -2,12 +2,22 @@ pipeline {
     agent any
 
     environment {
-        NODEJS_HOME = '/usr/bin' // system Node path
-        PATH = "${NODEJS_HOME}:${env.PATH}"
+        DOCKERHUB_CREDENTIALS = 'dockerhub-creds' // Jenkins credential ID for Docker Hub
+        DOCKERHUB_USERNAME = 'bose2001'
+        FRONTEND_IMAGE = "bose2001/mean-frontend"
+        BACKEND_IMAGE  = "bose2001/mean-backend"
+        SERVER_IP = "3.230.166.189"
+        APP_PATH = "/home/ubuntu/crud-dd-task-mean-app"
     }
 
     stages {
-        stage('Checkout SCM') {
+        stage('Clean Workspace') {
+            steps {
+                deleteDir() // clear Jenkins workspace to avoid disk space issues
+            }
+        }
+
+        stage('Checkout Code') {
             steps {
                 git url: 'https://github.com/Bose2001/crud-dd-task-mean-app.git', branch: 'main', credentialsId: 'github-creds'
             }
@@ -16,7 +26,7 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 dir('frontend') {
-                    sh 'npm install'
+                    sh 'npm ci'
                     sh 'npm run build --prod'
                 }
             }
@@ -25,43 +35,39 @@ pipeline {
         stage('Build Backend') {
             steps {
                 dir('backend') {
-                    sh 'npm install'
+                    sh 'npm ci --only=production'
                 }
             }
         }
 
         stage('Build Docker Images') {
             steps {
-                sh 'docker build -t mean-app-frontend ./frontend'
-                sh 'docker build -t mean-app-backend ./backend'
+                sh "docker build -t $FRONTEND_IMAGE ./frontend"
+                sh "docker build -t $BACKEND_IMAGE ./backend"
             }
         }
 
-        stage('Tag Docker Images') {
+        stage('Push Docker Images') {
             steps {
-                sh 'docker tag mean-app-frontend <DOCKERHUB_USERNAME>/mean-app-frontend:latest'
-                sh 'docker tag mean-app-backend <DOCKERHUB_USERNAME>/mean-app-backend:latest'
-            }
-        }
-
-        stage('Login to DockerHub') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                    sh 'echo $PASSWORD | docker login -u $USERNAME --password-stdin'
+                withCredentials([usernamePassword(credentialsId: "$DOCKERHUB_CREDENTIALS", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
+                    sh "docker push $FRONTEND_IMAGE"
+                    sh "docker push $BACKEND_IMAGE"
                 }
             }
         }
 
-        stage('Push Images to DockerHub') {
+        stage('Deploy on Server') {
             steps {
-                sh 'docker push <DOCKERHUB_USERNAME>/mean-app-frontend:latest'
-                sh 'docker push <DOCKERHUB_USERNAME>/mean-app-backend:latest'
-            }
-        }
-
-        stage('Deploy on Ubuntu Server') {
-            steps {
-                sh 'ssh ubuntu@<SERVER_IP> "docker pull <DOCKERHUB_USERNAME>/mean-app-frontend:latest && docker pull <DOCKERHUB_USERNAME>/mean-app-backend:latest && docker-compose -f /home/ubuntu/mean-app/docker-compose.yml up -d"'
+                sshagent(['ubuntu-ssh']) { // Jenkins SSH credential ID for server
+                    sh """
+                    ssh -o StrictHostKeyChecking=no ubuntu@$SERVER_IP '
+                        cd $APP_PATH
+                        sudo docker-compose pull
+                        sudo docker-compose up -d
+                    '
+                    """
+                }
             }
         }
     }
@@ -70,6 +76,11 @@ pipeline {
         always {
             cleanWs()
         }
+        success {
+            echo 'Deployment Successful!'
+        }
+        failure {
+            echo 'Pipeline Failed. Check logs!'
+        }
     }
 }
-
