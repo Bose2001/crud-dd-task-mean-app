@@ -2,18 +2,14 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_USER = 'bose2001'
-        FRONTEND_IMAGE = "${DOCKERHUB_USER}/mean-frontend"
-        BACKEND_IMAGE = "${DOCKERHUB_USER}/mean-backend"
-        SERVER_IP = "3.230.166.189"
+        NODEJS_HOME = '/usr/bin' // system Node path
+        PATH = "${NODEJS_HOME}:${env.PATH}"
     }
 
     stages {
-
-        stage('Clone Repository') {
+        stage('Checkout SCM') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/Bose2001/crud-dd-task-mean-app.git'
+                git url: 'https://github.com/Bose2001/crud-dd-task-mean-app.git', branch: 'main', credentialsId: 'github-creds'
             }
         }
 
@@ -36,46 +32,43 @@ pipeline {
 
         stage('Build Docker Images') {
             steps {
-                sh "docker build -t mean-backend ./backend"
-                sh "docker build -t mean-frontend ./frontend"
+                sh 'docker build -t mean-app-frontend ./frontend'
+                sh 'docker build -t mean-app-backend ./backend'
             }
         }
 
         stage('Tag Docker Images') {
             steps {
-                sh "docker tag mean-backend ${BACKEND_IMAGE}:latest"
-                sh "docker tag mean-frontend ${FRONTEND_IMAGE}:latest"
+                sh 'docker tag mean-app-frontend <DOCKERHUB_USERNAME>/mean-app-frontend:latest'
+                sh 'docker tag mean-app-backend <DOCKERHUB_USERNAME>/mean-app-backend:latest'
             }
         }
 
         stage('Login to DockerHub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                    sh "echo $PASS | docker login -u $USER --password-stdin"
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                    sh 'echo $PASSWORD | docker login -u $USERNAME --password-stdin'
                 }
             }
         }
 
         stage('Push Images to DockerHub') {
             steps {
-                sh "docker push ${BACKEND_IMAGE}:latest"
-                sh "docker push ${FRONTEND_IMAGE}:latest"
+                sh 'docker push <DOCKERHUB_USERNAME>/mean-app-frontend:latest'
+                sh 'docker push <DOCKERHUB_USERNAME>/mean-app-backend:latest'
             }
         }
 
         stage('Deploy on Ubuntu Server') {
             steps {
-                sshagent(credentials: ['ubuntu-ssh']) {
-                    sh """
-                    ssh -o StrictHostKeyChecking=no ubuntu@${SERVER_IP} '
-                        cd ~/crud-dd-task-mean-app &&
-                        docker compose down &&
-                        docker compose pull &&
-                        docker compose up -d
-                    '
-                    """
-                }
+                sh 'ssh ubuntu@<SERVER_IP> "docker pull <DOCKERHUB_USERNAME>/mean-app-frontend:latest && docker pull <DOCKERHUB_USERNAME>/mean-app-backend:latest && docker-compose -f /home/ubuntu/mean-app/docker-compose.yml up -d"'
             }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
         }
     }
 }
