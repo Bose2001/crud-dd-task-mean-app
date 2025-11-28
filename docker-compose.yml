@@ -9,27 +9,28 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: examplepassword
+    ports:
+      - "27017:27017"
     volumes:
       - mongo-data:/data/db
 
   backend:
     build: ./backend
     container_name: mean-backend
-    depends_on:
-      - mongo
+    ports:
+      - "8080:8080"
     environment:
       - MONGO_URL=mongodb://mean-mongo:27017/meanDB
-    ports:
-      - "8080:8080"   # expose backend to host for Nginx
+    depends_on:
+      - mongo
 
   frontend:
     build: ./frontend
     container_name: mean-frontend
+    ports:
+      - "4200:80"
     depends_on:
       - backend
-    ports:
-      - "4200:80"     # expose frontend to host for Nginx
 
 volumes:
   mongo-data:
-
